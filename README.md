@@ -3,7 +3,7 @@
 A full-stack project management web app with role-based access control (Admin/Member).
 
 ## Live URL
-[Deploy on Railway and paste your URL here]
+https://taskflow-app-production-e96d.up.railway.app/login
 
 ## Tech Stack
 - **Backend:** Node.js, Express.js, MongoDB (Mongoose), JWT, bcryptjs
@@ -39,7 +39,7 @@ A full-stack project management web app with role-based access control (Admin/Me
 ```bash
 cd backend
 npm install
-npm run dev
+node index.js
 ```
 Runs on http://localhost:5000
 
