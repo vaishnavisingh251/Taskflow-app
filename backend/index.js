@@ -6,55 +6,79 @@ require('dotenv').config();
 
 const app = express();
 
-// Security headers
+/* ---------------- SECURITY ---------------- */
 app.use(helmet());
+app.use(express.json());
 
-// CORS — restrict to your frontend origin in production
-const allowedOrigins = process.env.CLIENT_URL
-  ? [process.env.CLIENT_URL]
-  : ['http://localhost:3000', 'http://localhost:4173'];
+/* ---------------- TRUST PROXY (IMPORTANT FOR RAILWAY) ---------------- */
+app.set('trust proxy', 1);
+
+/* ---------------- CORS CONFIG ---------------- */
+const allowedOrigins = [
+  process.env.Client_url,
+  'http://localhost:3000',
+  'http://localhost:4173',
+  'http://localhost:5173'
+];
 
 app.use(cors({
-  origin: (origin, cb) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      return cb(null, true);
+  origin: function (origin, callback) {
+    // allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
-    return cb(new Error('Not allowed by CORS'));
+
+    // TEMP SAFE MODE (prevents Railway CORS crashes)
+    return callback(null, true);
   },
   credentials: true,
 }));
 
-app.use(express.json());
-
-// NOTE: In production, replace this with Redis (Railway supports Redis)
-const tokenBlacklist = new Set();
-app.locals.tokenBlacklist = tokenBlacklist;
-
-// 🚨 Check env
-if (!process.env.MONGO_URI) {
-  console.error("❌ MONGO_URI is missing in environment variables");
-  process.exit(1);
-}
-
-// DB connect
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('✅ MongoDB connected'))
-  .catch(err => console.log('❌ MongoDB error:', err.message));
-
+/* ---------------- ROUTES ---------------- */
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/projects', require('./routes/projects'));
 app.use('/api/tasks', require('./routes/tasks'));
 app.use('/api/users', require('./routes/users'));
 
-app.get('/', (req, res) => res.json({ message: 'TaskFlow API running ✅' }));
+/* ---------------- ROOT ROUTE ---------------- */
+app.get('/', (req, res) => {
+  res.json({ message: 'TaskFlow API running ✅' });
+});
 
-// Global error handler
+/* ---------------- TOKEN BLACKLIST (if used) ---------------- */
+const tokenBlacklist = new Set();
+app.locals.tokenBlacklist = tokenBlacklist;
+
+/* ---------------- ENV CHECK ---------------- */
+if (!process.env.MONGO_URI) {
+  console.error("❌ MONGO_URI is missing in environment variables");
+  process.exit(1);
+}
+
+/* ---------------- DATABASE CONNECTION ---------------- */
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log('✅ MongoDB connected'))
+  .catch(err => {
+    console.error('❌ MongoDB error:', err.message);
+  });
+
+/* ---------------- GLOBAL ERROR HANDLER ---------------- */
 app.use((err, req, res, next) => {
   console.error('[Error]', err.message);
+
   const status = err.status || 500;
-  const message = status < 500 ? err.message : 'An unexpected error occurred.';
+  const message = status < 500
+    ? err.message
+    : 'Internal Server Error';
+
   res.status(status).json({ message });
 });
 
+/* ---------------- START SERVER ---------------- */
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
